@@ -3,9 +3,9 @@ package chat
 import "github.com/gorilla/websocket"
 
 type ChatClient struct {
-	conn *websocket.Conn
-	send chan []byte
-	hub *ChatHub
+	conn	*websocket.Conn
+	send	chan []byte
+	hub		*ChatHub
 }
 
 func (c *ChatClient) readPump() {
