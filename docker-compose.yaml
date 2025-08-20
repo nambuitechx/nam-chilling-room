@@ -1,0 +1,43 @@
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    image: nam-chilling-room/postgres:1.0.0
+    ports:
+      - "5432:5432"
+    networks:
+      - app_network
+    environment:
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_NAME=nam_chilling_room
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: nam-chilling-room/server:1.0.0
+    ports:
+      - "8000:8000"
+    networks:
+      - app_network
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=nam_chilling_room
+      - DATABASE_USER=admin
+      - DATABASE_PASSWORD=admin
+    depends_on:
+      - postgres
