@@ -2,11 +2,11 @@ package users
 
 import (
 	"errors"
-	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/nambuitechx/nam-chilling-room-server/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,16 +20,16 @@ func NewUserService(userRepository *UserRepository) *UserService {
 	}
 }
 
-func (s *UserService) ListUsers(username string, limit int, offset int) ([]User, error) {
-	return s.UserRepository.SelectUsers(username, limit, offset)
+func (s *UserService) listUsers(username string, limit int, offset int) ([]User, error) {
+	return s.UserRepository.selectUsers(username, limit, offset)
 }
 
-func (s *UserService) GetUserByID(id string) (*User, error) {
-	return s.UserRepository.SelectUserByID(id)
+func (s *UserService) getUserByID(id string) (*User, error) {
+	return s.UserRepository.selectUserByID(id)
 }
 
-func (s *UserService) CreateUser(username string, password string) (*User, error) {
-	user, err := s.UserRepository.SelectUserByUsername(username)
+func (s *UserService) createUser(username string, password string) (*User, error) {
+	user, err := s.UserRepository.selectUserByUsername(username)
 
 	if err != nil && err.Error() != "user not found" {
 		return nil, err
@@ -51,11 +51,11 @@ func (s *UserService) CreateUser(username string, password string) (*User, error
 		Password: string(hashedPassword),
 	}
 
-	return s.UserRepository.InsertUser(newUser)
+	return s.UserRepository.insertUser(newUser)
 }
 
-func (s *UserService) Authenticate(username string, password string) (string, error) {
-	user, err := s.UserRepository.SelectUserByUsername(username)
+func (s *UserService) authenticate(username string, password string) (string, error) {
+	user, err := s.UserRepository.selectUserByUsername(username)
 
 	if err != nil {
 		return "", err
@@ -67,7 +67,7 @@ func (s *UserService) Authenticate(username string, password string) (string, er
 		return "", errors.New("invalid username or password")
 	}
 
-	claimsStruct := AuthorizedUserInfo {
+	claimsStruct := utils.AuthorizedUserInfo {
 		ID: user.ID,
 		Username: user.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -88,42 +88,14 @@ func (s *UserService) Authenticate(username string, password string) (string, er
 	return tokenString, nil
 }
 
-func (s *UserService) Authorize(tokenString string) (*User, error) {
-	claims, err := ValidateTokenString(tokenString)
+// func (s *UserService) authorize(tokenString string) (*User, error) {
+// 	claims, err := utils.ValidateTokenString(tokenString)
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	user, err := s.UserRepository.SelectUserByUsername(claims.Username)
+// 	user, err := s.UserRepository.SelectUserByUsername(claims.Username)
 
-	return user, err
-}
-
-func ValidateTokenString(tokenString string) (*AuthorizedUserInfo, error) {
-	log.Printf("Validating tokenString: %v", tokenString)
-
-	claims := &AuthorizedUserInfo{}
-
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		claims,
-		func(t *jwt.Token) (any, error) {
-			// check signing method
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("unexpected signing method")
-			}
-			return []byte("secret"), nil
-		},
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, errors.New("invalid token")
-	}
-
-	return claims, nil
-}
+// 	return user, err
+// }

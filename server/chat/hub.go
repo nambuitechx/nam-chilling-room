@@ -3,25 +3,30 @@ package chat
 import (
 	"log"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type ChatHub struct {
-	clients    map[*ChatClient]bool
-	broadcast  chan IncomingMessage
-	register   chan *ChatClient
-	unregister chan *ChatClient
+	clients    		map[*ChatClient]bool
+	register   		chan *ChatClient
+	unregister 		chan *ChatClient
+
+	broadcast  		chan IncomingMessage
+	mediaBroadcast 	chan []byte
 
 	// Worker queues (separate channels)
-	dbQueue   chan IncomingMessage
+	dbQueue   		chan IncomingMessage
 }
 
 func newHub(dbWorkers int) *ChatHub {
 	h := &ChatHub{
-		clients:    make(map[*ChatClient]bool),
-		broadcast:  make(chan IncomingMessage),
-		register:   make(chan *ChatClient),
-		unregister: make(chan *ChatClient),
-		dbQueue:    make(chan IncomingMessage),
+		clients:    	make(map[*ChatClient]bool),
+		register:   	make(chan *ChatClient),
+		unregister: 	make(chan *ChatClient),
+		broadcast:  	make(chan IncomingMessage),
+		mediaBroadcast:	make(chan []byte),
+		dbQueue:    	make(chan IncomingMessage),
 	}
 
 	// Start separate worker pools
@@ -62,6 +67,19 @@ func (h *ChatHub) run() {
 				// 	default:
 				// 		log.Println("⚠️ DB queue full, dropping message")
 				// }
+			
+			case chunk := <-h.mediaBroadcast:
+				// Broadcast media chunks
+				for client := range h.clients {
+					err := client.conn.WriteMessage(websocket.BinaryMessage, chunk)
+
+					if err != nil {
+						log.Println("error sending chunk:", err)
+						// client.conn.Close()
+						// delete(h.clients, client)
+						continue
+					}
+				}
 		}
 	}
 }

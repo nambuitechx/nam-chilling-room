@@ -6,40 +6,41 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/nambuitechx/nam-chilling-room-server/utils"
 )
 
 func NewUserRouter(userService *UserService) http.Handler {
 	r := chi.NewRouter()
 
-	r.Get("/", ListUsers(userService))
-	r.Get("/{userID}", GetUserByID(userService))
-	r.Post("/register", CreateUser(userService))
-	r.Post("/login", Login(userService))
+	r.Get("/", listUsers(userService))
+	r.Get("/{userID}", getUserByID(userService))
+	r.Post("/register", createUser(userService))
+	r.Post("/login", login(userService))
 
 	return r
 }
 
-func ListUsers(s *UserService) http.HandlerFunc {
+func listUsers(s *UserService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username := r.URL.Query().Get("username")
 		limit, err := getQueryInt(r, "limit", 10)
 		
 		if err != nil {
-			responseError(w, "Invalid limit", 400, err)
+			utils.ResponseError(w, "Invalid limit", 400, err)
 			return
 		}
 
 		offset, err := getQueryInt(r, "offset", 0)
 		
 		if err != nil {
-			responseError(w, "Invalid offset", 400, err)
+			utils.ResponseError(w, "Invalid offset", 400, err)
 			return
 		}
 
-		users, err := s.ListUsers(username, limit, offset)
+		users, err := s.listUsers(username, limit, offset)
 
 		if err != nil {
-			responseError(w, "Failed to get all users", 500, err)
+			utils.ResponseError(w, "Failed to get all users", 500, err)
 			return
 		}
 
@@ -52,13 +53,13 @@ func ListUsers(s *UserService) http.HandlerFunc {
 	})
 }
 
-func GetUserByID(s *UserService) http.HandlerFunc {
+func getUserByID(s *UserService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := chi.URLParam(r, "userID")
-		user, err := s.GetUserByID(userID)
+		user, err := s.getUserByID(userID)
 
 		if err != nil {
-			responseError(w, "Failed to get user by id", 500, err)
+			utils.ResponseError(w, "Failed to get user by id", 500, err)
 			return
 		}
 
@@ -71,19 +72,19 @@ func GetUserByID(s *UserService) http.HandlerFunc {
 	})
 }
 
-func CreateUser(s *UserService) http.HandlerFunc {
+func createUser(s *UserService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload CreateUserPayload
 
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			responseError(w, "Failed to decode body payload", 400, err)
+			utils.ResponseError(w, "Failed to decode body payload", 400, err)
 			return
 		}
 
-		user, err := s.CreateUser(payload.Username, payload.Password)
+		user, err := s.createUser(payload.Username, payload.Password)
 
 		if err != nil {
-			responseError(w, "Failed to create new user", 500, err)
+			utils.ResponseError(w, "Failed to create new user", 500, err)
 			return
 		}
 
@@ -96,24 +97,24 @@ func CreateUser(s *UserService) http.HandlerFunc {
 	})
 }
 
-func Login(s *UserService) http.HandlerFunc {
+func login(s *UserService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload LoginPayload
 
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			responseError(w, "Failed to decode body payload", 400, err)
+			utils.ResponseError(w, "Failed to decode body payload", 400, err)
 			return
 		}
 
-		tokenString, err := s.Authenticate(payload.Username, payload.Password)
+		tokenString, err := s.authenticate(payload.Username, payload.Password)
 
 		if err != nil {
-			responseError(w, "Invalid username or password", 400, err)
+			utils.ResponseError(w, "Invalid username or password", 400, err)
 			return
 		}
 
 		resp, _ := json.Marshal(map[string]any {
-			"message": "Login successfully",
+			"message": "login successfully",
 			"data": tokenString,
 		})
 
@@ -129,14 +130,4 @@ func getQueryInt(r *http.Request, key string, defaultValue int) (int, error) {
     }
 
     return strconv.Atoi(valStr)
-}
-
-func responseError(w http.ResponseWriter, message string, statusCode int, err error) {
-	resp, _ := json.Marshal(map[string]any {
-		"message": message,
-		"error": err.Error(),
-	})
-
-	w.WriteHeader(statusCode)
-	w.Write(resp)
 }

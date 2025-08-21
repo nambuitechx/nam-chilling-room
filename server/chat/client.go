@@ -5,13 +5,13 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
-	"github.com/nambuitechx/nam-chilling-room-server/users"
+	"github.com/nambuitechx/nam-chilling-room-server/utils"
 )
 
 type ChatClient struct {
+	hub		*ChatHub
 	conn	*websocket.Conn
 	send	chan IncomingMessage
-	hub		*ChatHub
 }
 
 func (c *ChatClient) readPump() {
@@ -40,7 +40,7 @@ func (c *ChatClient) readPump() {
 
 func (c *ChatClient) writePump() {
 	for msg := range c.send {
-		claims, err := users.ValidateTokenString(msg.TokenString)
+		claims, err := utils.ValidateTokenString(msg.TokenString)
 
 		if err != nil {
 			log.Printf("failed to validate token string: %v", err)
@@ -56,12 +56,13 @@ func (c *ChatClient) writePump() {
 		data, err := json.Marshal(responseMessage)
 
 		if err != nil {
-			log.Printf("invalid json to send to client: %v", err)
+			log.Printf("invalid json message to send to client: %v", err)
             continue
 		}
 
 		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			break
+			log.Printf("failed to send message to client: %v", err)
+			continue
 		}
 	}
 }

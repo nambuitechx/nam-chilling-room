@@ -15,7 +15,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	}
 }
 
-func (r *UserRepository) SelectUsers(username string, limit int, offset int) ([]User, error) {
+func (r *UserRepository) selectUsers(username string, limit int, offset int) ([]User, error) {
 	var users = []User{}
 
 	rows, err := r.DB.Query(
@@ -47,7 +47,7 @@ func (r *UserRepository) SelectUsers(username string, limit int, offset int) ([]
 	return users, nil
 }
 
-func (r *UserRepository) SelectUserByID(id string) (*User, error) {
+func (r *UserRepository) selectUserByID(id string) (*User, error) {
 	var user User
 
 	row := r.DB.QueryRow(
@@ -65,7 +65,7 @@ func (r *UserRepository) SelectUserByID(id string) (*User, error) {
 	return &user, nil
 }
 
-func (r *UserRepository) SelectUserByUsername(username string) (*User, error) {
+func (r *UserRepository) selectUserByUsername(username string) (*User, error) {
 	var user User
 
 	row := r.DB.QueryRow(
@@ -83,7 +83,7 @@ func (r *UserRepository) SelectUserByUsername(username string) (*User, error) {
 	return &user, nil
 }
 
-func (r *UserRepository) InsertUser(user *User) (*User, error) {
+func (r *UserRepository) insertUser(user *User) (*User, error) {
 	var insertedUser User
 
 	err := r.DB.QueryRow(

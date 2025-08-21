@@ -2,8 +2,6 @@ package users
 
 import (
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type User struct {
@@ -22,10 +20,4 @@ type CreateUserPayload struct {
 type LoginPayload struct {
 	Username	string		`json:"username"`
 	Password	string		`json:"password"`
-}
-
-type AuthorizedUserInfo struct {
-	ID			string		`json:"id"`
-	Username	string		`json:"username"`
-	jwt.RegisteredClaims
 }

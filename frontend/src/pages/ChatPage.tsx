@@ -11,6 +11,15 @@ const Container = styled.div`
 const LeftPanel = styled.div`
   flex: 1;
   border-right: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const VideoPlayer = styled.video`
+  width: 100%;
+  height: 100%;
+  background: black;
 `;
 
 const RightPanel = styled.div`
@@ -103,7 +112,8 @@ const LogoutButton = styled.button`
   }
 `;
 
-// ---------------- New Message Component ----------------
+// ---------------- Message Component ----------------
+
 type MessageItemProps = {
   isSelf: boolean;
   username: string;
@@ -120,7 +130,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ isSelf, username, content }) 
     </MessageRow>
   );
 };
-// -------------------------------------------------------
+
+// ---------------- ChatPage Component ----------------
 
 type ChatPageProps = {
   token: string | null;
@@ -139,12 +150,28 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
   const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
 
+  // Media refs
+  const mediaSourceRef = useRef<MediaSource | null>(null);
+  const sourceBufferRef = useRef<SourceBuffer | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
   useEffect(() => {
     ws.current = new WebSocket("ws://localhost:8000/chat/ws");
 
+    // Set binary type for media chunks
+    ws.current.binaryType = "arraybuffer";
+
     ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data) as ServerMessage;
-      setMessages((prev) => [...prev, data]);
+      // Check if it's JSON (chat) or binary (media)
+      if (typeof event.data === "string") {
+        const data = JSON.parse(event.data) as ServerMessage;
+        setMessages((prev) => [...prev, data]);
+      } else {
+        // Binary data -> feed into SourceBuffer
+        if (sourceBufferRef.current && !sourceBufferRef.current.updating) {
+          sourceBufferRef.current.appendBuffer(new Uint8Array(event.data));
+        }
+      }
     };
 
     ws.current.onclose = (event) => {
@@ -154,6 +181,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
         console.log("✅ WebSocket closed cleanly");
       }
     };
+
+    // Setup MediaSource
+    if (videoRef.current) {
+      mediaSourceRef.current = new MediaSource();
+      videoRef.current.src = URL.createObjectURL(mediaSourceRef.current);
+
+      mediaSourceRef.current.addEventListener("sourceopen", () => {
+        // Adjust codec to your file type
+        sourceBufferRef.current = mediaSourceRef.current!.addSourceBuffer(
+          'video/mp4; codecs="avc1.64001f, mp4a.40.2"'
+        );
+      });
+    }
 
     return () => {
       ws.current?.close();
@@ -179,7 +219,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
 
   return (
     <Container>
-      <LeftPanel>{/* reserved for future use */}</LeftPanel>
+      <LeftPanel>
+        {/* Live video */}
+        <VideoPlayer
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+        />
+      </LeftPanel>
+
       <RightPanel>
         <TopBar>
           <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
