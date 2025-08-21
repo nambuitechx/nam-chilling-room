@@ -2,6 +2,7 @@ package users
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -88,25 +89,41 @@ func (s *UserService) Authenticate(username string, password string) (string, er
 }
 
 func (s *UserService) Authorize(tokenString string) (*User, error) {
-	token, err := jwt.Parse(
+	claims, err := ValidateTokenString(tokenString)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.UserRepository.SelectUserByUsername(claims.Username)
+
+	return user, err
+}
+
+func ValidateTokenString(tokenString string) (*AuthorizedUserInfo, error) {
+	log.Printf("Validating tokenString: %v", tokenString)
+
+	claims := &AuthorizedUserInfo{}
+
+	token, err := jwt.ParseWithClaims(
 		tokenString,
+		claims,
 		func(t *jwt.Token) (any, error) {
+			// check signing method
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
 			return []byte("secret"), nil
 		},
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(AuthorizedUserInfo)
-
-	if !ok || !token.Valid {
-		return nil, errors.New("invalid token claims")
+	if !token.Valid {
+		return nil, errors.New("invalid token")
 	}
 
-	user, err := s.UserRepository.SelectUserByUsername(claims.Username)
-
-	return user, err
+	return claims, nil
 }

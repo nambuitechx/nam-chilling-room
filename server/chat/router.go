@@ -33,7 +33,7 @@ func serveWs(hub *ChatHub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &ChatClient{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &ChatClient{hub: hub, conn: conn, send: make(chan IncomingMessage, 256)}
 	client.hub.register <- client
 
 	go client.writePump()

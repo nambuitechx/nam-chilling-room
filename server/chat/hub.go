@@ -5,28 +5,23 @@ import (
 	"time"
 )
 
-type Message struct {
-	Sender	*ChatClient
-	Content	[]byte
-}
-
 type ChatHub struct {
 	clients    map[*ChatClient]bool
-	broadcast  chan Message
+	broadcast  chan IncomingMessage
 	register   chan *ChatClient
 	unregister chan *ChatClient
 
 	// Worker queues (separate channels)
-	dbQueue   chan []byte
+	dbQueue   chan IncomingMessage
 }
 
 func newHub(dbWorkers int) *ChatHub {
 	h := &ChatHub{
 		clients:    make(map[*ChatClient]bool),
-		broadcast:  make(chan Message),
+		broadcast:  make(chan IncomingMessage),
 		register:   make(chan *ChatClient),
 		unregister: make(chan *ChatClient),
-		dbQueue:    make(chan []byte, 100),
+		dbQueue:    make(chan IncomingMessage),
 	}
 
 	// Start separate worker pools
@@ -53,22 +48,20 @@ func (h *ChatHub) run() {
 			case message := <-h.broadcast:
 				// Broadcast fast
 				for client := range h.clients {
-					if client != message.Sender {
-						select {
-							case client.send <- message.Content:
-							default:
-								close(client.send)
-								delete(h.clients, client)
-						}
+					select {
+						case client.send <- message:
+						default:
+							close(client.send)
+							delete(h.clients, client)
 					}
 				}
 
-				// Send to each specialized worker pool
-				select {
-					case h.dbQueue <- message.Content:
-					default:
-						log.Println("⚠️ DB queue full, dropping message")
-				}
+				// // Send to each specialized worker pool
+				// select {
+				// 	case h.dbQueue <- message:
+				// 	default:
+				// 		log.Println("⚠️ DB queue full, dropping message")
+				// }
 		}
 	}
 }

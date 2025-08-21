@@ -1,10 +1,16 @@
 package chat
 
-import "github.com/gorilla/websocket"
+import (
+	"encoding/json"
+	"log"
+
+	"github.com/gorilla/websocket"
+	"github.com/nambuitechx/nam-chilling-room-server/users"
+)
 
 type ChatClient struct {
 	conn	*websocket.Conn
-	send	chan []byte
+	send	chan IncomingMessage
 	hub		*ChatHub
 }
 
@@ -21,18 +27,40 @@ func (c *ChatClient) readPump() {
 			break
 		}
 
-		message := Message{
-			Sender: c,
-			Content: msg,
+		var incomingMessage IncomingMessage
+
+		if err := json.Unmarshal(msg, &incomingMessage); err != nil {
+			log.Printf("invalid json from client: %v", err)
+            continue
 		}
 
-		c.hub.broadcast <- message
+		c.hub.broadcast <- incomingMessage
 	}
 }
 
 func (c *ChatClient) writePump() {
 	for msg := range c.send {
-		if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		claims, err := users.ValidateTokenString(msg.TokenString)
+
+		if err != nil {
+			log.Printf("failed to validate token string: %v", err)
+            continue
+		}
+
+		responseMessage := map[string]any {
+			"tokenString": msg.TokenString,
+			"username": claims.Username,
+			"content": msg.Content,
+		}
+
+		data, err := json.Marshal(responseMessage)
+
+		if err != nil {
+			log.Printf("invalid json to send to client: %v", err)
+            continue
+		}
+
+		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			break
 		}
 	}
