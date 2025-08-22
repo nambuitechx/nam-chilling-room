@@ -22,7 +22,7 @@ const WebRTCReceiver: React.FC = () => {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const res = await fetch("/webrtc/offer", {
+      const res = await fetch("http://localhost:8000/chat/webrtc/offer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sdp: offer.sdp, type: "offer" }),

@@ -2,14 +2,11 @@ package utils
 
 import (
 	"errors"
-	"log"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 func ValidateTokenString(tokenString string) (*AuthorizedUserInfo, error) {
-	log.Printf("Validating tokenString: %v", tokenString)
-
 	claims := &AuthorizedUserInfo{}
 
 	token, err := jwt.ParseWithClaims(

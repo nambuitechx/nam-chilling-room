@@ -73,8 +73,6 @@ func (c *ChatClient) writePump() {
 					continue
 				}
 
-				c.conn.WriteMessage(websocket.TextMessage, data)
-
 			// Send media
 			case frame, ok := <-c.media:
 				if !ok {
