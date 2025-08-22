@@ -6,11 +6,15 @@ import (
 )
 
 func ResponseError(w http.ResponseWriter, message string, statusCode int, err error) {
-	resp, _ := json.Marshal(map[string]any {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	payload := map[string]any {
 		"message": message,
 		"error": err.Error(),
-	})
+	}
 
-	w.WriteHeader(statusCode)
-	w.Write(resp)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
