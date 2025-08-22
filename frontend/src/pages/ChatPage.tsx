@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import WebRTCReceiver from "./WebRTCReceiver";
 
 const Container = styled.div`
   display: flex;
@@ -16,11 +17,11 @@ const LeftPanel = styled.div`
   justify-content: center;
 `;
 
-const VideoPlayer = styled.video`
-  width: 100%;
-  height: 100%;
-  background: black;
-`;
+// const VideoPlayer = styled.video`
+//   width: 100%;
+//   height: 100%;
+//   background: black;
+// `;
 
 const RightPanel = styled.div`
   width: 400px;
@@ -150,11 +151,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
   const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
 
-  // Media refs
-  const mediaSourceRef = useRef<MediaSource | null>(null);
-  const sourceBufferRef = useRef<SourceBuffer | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
   useEffect(() => {
     ws.current = new WebSocket("ws://localhost:8000/chat/ws");
 
@@ -162,15 +158,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
     ws.current.binaryType = "arraybuffer";
 
     ws.current.onmessage = (event) => {
-      // Check if it's JSON (chat) or binary (media)
+      // Check if it's JSON (chat)
       if (typeof event.data === "string") {
         const data = JSON.parse(event.data) as ServerMessage;
         setMessages((prev) => [...prev, data]);
-      } else {
-        // Binary data -> feed into SourceBuffer
-        if (sourceBufferRef.current && !sourceBufferRef.current.updating) {
-          sourceBufferRef.current.appendBuffer(new Uint8Array(event.data));
-        }
       }
     };
 
@@ -181,19 +172,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
         console.log("✅ WebSocket closed cleanly");
       }
     };
-
-    // Setup MediaSource
-    if (videoRef.current) {
-      mediaSourceRef.current = new MediaSource();
-      videoRef.current.src = URL.createObjectURL(mediaSourceRef.current);
-
-      mediaSourceRef.current.addEventListener("sourceopen", () => {
-        // Adjust codec to your file type
-        sourceBufferRef.current = mediaSourceRef.current!.addSourceBuffer(
-          'video/mp4; codecs="avc1.64001f, mp4a.40.2"'
-        );
-      });
-    }
 
     return () => {
       ws.current?.close();
@@ -220,13 +198,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ token, setToken }) => {
   return (
     <Container>
       <LeftPanel>
-        {/* Live video */}
-        <VideoPlayer
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-        />
+        <WebRTCReceiver />
       </LeftPanel>
 
       <RightPanel>

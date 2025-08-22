@@ -11,7 +11,8 @@ import (
 type ChatClient struct {
 	hub		*ChatHub
 	conn	*websocket.Conn
-	send	chan IncomingMessage
+	message	chan IncomingMessage
+	media	chan []byte
 }
 
 func (c *ChatClient) readPump() {
@@ -39,30 +40,47 @@ func (c *ChatClient) readPump() {
 }
 
 func (c *ChatClient) writePump() {
-	for msg := range c.send {
-		claims, err := utils.ValidateTokenString(msg.TokenString)
+	for {
+		select {
+			// Send JSON
+			case msg, ok := <-c.message:
+				if !ok {
+					return
+				}
 
-		if err != nil {
-			log.Printf("failed to validate token string: %v", err)
-            continue
-		}
+				claims, err := utils.ValidateTokenString(msg.TokenString)
 
-		responseMessage := map[string]any {
-			"tokenString": msg.TokenString,
-			"username": claims.Username,
-			"content": msg.Content,
-		}
+				if err != nil {
+					log.Printf("failed to validate token string: %v", err)
+					continue
+				}
 
-		data, err := json.Marshal(responseMessage)
+				responseMessage := map[string]any {
+					"tokenString": msg.TokenString,
+					"username": claims.Username,
+					"content": msg.Content,
+				}
 
-		if err != nil {
-			log.Printf("invalid json message to send to client: %v", err)
-            continue
-		}
+				data, err := json.Marshal(responseMessage)
 
-		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("failed to send message to client: %v", err)
-			continue
+				if err != nil {
+					log.Printf("invalid json message to send to client: %v", err)
+					continue
+				}
+
+				if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+					log.Printf("failed to send message to client: %v", err)
+					continue
+				}
+
+				c.conn.WriteMessage(websocket.TextMessage, data)
+
+			// Send media
+			case frame, ok := <-c.media:
+				if !ok {
+					return
+				}
+				c.conn.WriteMessage(websocket.BinaryMessage, frame)
 		}
 	}
 }

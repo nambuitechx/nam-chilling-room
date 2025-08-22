@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -39,6 +40,44 @@ func GetS3Object(bucket *string, key *string) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func DownloadS3Object(bucket *string, key *string, localPath string) (string, error) {
+	// Using the SDK's default configuration, load additional config
+    // and credentials values from the environment variables, shared
+    // credentials, and shared configuration files
+    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-southeast-1"))
+
+    if err != nil {
+		return "", fmt.Errorf("unable to load SDK config, %v", err)
+    }
+
+	s3Service := s3.NewFromConfig(cfg)
+
+	resp, err := s3Service.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: bucket,
+		Key:    key,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to download object: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	file, err := os.Create(localPath)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %w", err)
+	}
+
+	defer file.Close()
+
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return localPath, nil
 }
 
 func StreamS3Object(bucket string, key string, chunkSize int, sendChan chan<- []byte) error {

@@ -1,9 +1,11 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -24,7 +26,8 @@ func NewChatRouter() http.Handler {
 		serveWs(hub, w, r)
 	})
 
-	r.Post("/media", triggerMedia(hub))
+	r.Post("/media", triggerMedia())
+	r.Post("/webrtc/offer", webrtcOfferHandler)
 
 	return r
 }
@@ -37,14 +40,14 @@ func serveWs(hub *ChatHub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &ChatClient{hub: hub, conn: conn, send: make(chan IncomingMessage, 256)}
+	client := &ChatClient{hub: hub, conn: conn, message: make(chan IncomingMessage, 256)}
 	client.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
 }
 
-func triggerMedia(hub *ChatHub) http.HandlerFunc {
+func triggerMedia() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload TriggerMediaPayload
 
@@ -53,13 +56,25 @@ func triggerMedia(hub *ChatHub) http.HandlerFunc {
 			return
 		}
 
-		// Start streaming from S3 in the background
 		go func() {
-			err := utils.StreamS3Object(payload.Bucket, payload.Key, 6 * 1024, hub.mediaBroadcast)
+			// Download S3 file locally
+			localPath := "/tmp/" + payload.Key
+			path, err := utils.DownloadS3Object(&payload.Bucket, &payload.Key, localPath)
 
 			if err != nil {
-				log.Println("stream error:", err)
+				log.Println("failed to download S3 object:", err)
+				return
 			}
+
+			// Start broadcaster
+			ctx := context.Background()
+
+			if err := startBroadcaster(ctx, path); err != nil {
+				log.Printf("startBroadcaster error: %v", err)
+			}
+
+			// Remove temp file when done
+			_ = os.Remove(path)
 		}()
 
 		resp, _ := json.Marshal(map[string]any {

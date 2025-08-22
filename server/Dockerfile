@@ -10,6 +10,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/main .
 
 FROM alpine:latest
 
+RUN apk add curl ffmpeg
+
 COPY --from=builder /out/main /out/main
 
 ENTRYPOINT ["/out/main"]

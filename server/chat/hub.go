@@ -3,8 +3,6 @@ package chat
 import (
 	"log"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 type ChatHub struct {
@@ -13,7 +11,6 @@ type ChatHub struct {
 	unregister 		chan *ChatClient
 
 	broadcast  		chan IncomingMessage
-	mediaBroadcast 	chan []byte
 
 	// Worker queues (separate channels)
 	dbQueue   		chan IncomingMessage
@@ -25,7 +22,6 @@ func newHub(dbWorkers int) *ChatHub {
 		register:   	make(chan *ChatClient),
 		unregister: 	make(chan *ChatClient),
 		broadcast:  	make(chan IncomingMessage),
-		mediaBroadcast:	make(chan []byte),
 		dbQueue:    	make(chan IncomingMessage),
 	}
 
@@ -46,17 +42,16 @@ func (h *ChatHub) run() {
 			case client := <-h.unregister:
 				if _, ok := h.clients[client]; ok {
 					delete(h.clients, client)
-					close(client.send)
+					close(client.message)
 					client.conn.Close()
 				}
 
 			case message := <-h.broadcast:
-				// Broadcast fast
 				for client := range h.clients {
 					select {
-						case client.send <- message:
+						case client.message <- message:
 						default:
-							close(client.send)
+							close(client.message)
 							delete(h.clients, client)
 					}
 				}
@@ -67,19 +62,6 @@ func (h *ChatHub) run() {
 				// 	default:
 				// 		log.Println("⚠️ DB queue full, dropping message")
 				// }
-			
-			case chunk := <-h.mediaBroadcast:
-				// Broadcast media chunks
-				for client := range h.clients {
-					err := client.conn.WriteMessage(websocket.BinaryMessage, chunk)
-
-					if err != nil {
-						log.Println("error sending chunk:", err)
-						// client.conn.Close()
-						// delete(h.clients, client)
-						continue
-					}
-				}
 		}
 	}
 }
